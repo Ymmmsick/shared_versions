@@ -18,7 +18,7 @@ import 'package:ansicolor/ansicolor.dart';
 import 'package:meta/meta.dart';
 import 'package:yaml/yaml.dart';
 
-const _indent = 2;
+const spaces = 2;
 
 /// Class that help match the package dependencies versions from [_versionsFile]
 /// yaml file and override it to the other yaml file.
@@ -26,70 +26,87 @@ const _indent = 2;
 /// **NOTE:** This class only work for yaml file.
 class VersionsSynchronizer {
   const VersionsSynchronizer(this._stdout, this._versionsFile);
+
   final Stdout _stdout;
 
   final File _versionsFile;
 
   /// Match the package dependencies versions from [_versionsFile] and override
-  /// it the [pubspecFile].
+  /// it the [destPubspecFile].
   ///
   /// If the matched versions is different, it will print the changes to the console.
-  void syncTo(File pubspecFile) {
-    YamlMap? versionsMap = loadYaml(_versionsFile.readAsStringSync());
-    final pubspecMap = loadYaml(pubspecFile.readAsStringSync());
-    StringBuffer newContent = StringBuffer();
+  void syncTo(File destPubspecFile) {
+    final pubspecMap = loadYaml(destPubspecFile.readAsStringSync());
+    // 读取第一个YAML文件
+    final versionYaml = loadYaml(_versionsFile.readAsStringSync());
 
-    final pubspecFileLines = pubspecFile.readAsLinesSync();
-    int lineIndex = 0;
-    for (; lineIndex < pubspecFileLines.length;) {
-      final line = pubspecFileLines[lineIndex];
-      final trimLine = line.trim();
+    // 读取第二个YAML文件
+    final destPubspecYaml = loadYaml(destPubspecFile.readAsStringSync());
 
-      // Skip comment the yaml list
-      if (trimLine.startsWith("#") || !trimLine.contains(":")) {
-        newContent.writeln(line);
-        ++lineIndex;
-        continue;
-      }
+    // 获取两个YAML文件中的dependencies节点
+    final firstDependencies =
+        versionYaml['dependencies'] as YamlMap? ?? YamlMap();
+    final secondDependencies =
+        destPubspecYaml['dependencies'] as YamlMap? ?? YamlMap();
 
-      final key = trimLine.split(":").first.trim();
-      if (versionsMap!.containsKey(key)) {
-        if (trimLine.endsWith(":")) {
-          YamlMap? versionsValue = versionsMap[key];
-          YamlMap? pubspecValue = _findMapByKey(key, pubspecMap);
-          if (versionsValue.toString() != pubspecValue.toString()) {
-            final versionsValueLines =
-                map2Lines(key, line.indexOf(key), 0, versionsValue!);
-            newContent.write(versionsValueLines);
+    // 合并两个dependencies节点并去重
+    final mergedDependencies = {...firstDependencies, ...secondDependencies};
 
-            _stdout.write(
-                _createStdoutMessage(key, pubspecValue!, key, versionsValue));
+    // 将合并后的dependencies节点添加回其中一个YAML文件
+    destPubspecYaml['dependencies'] = mergedDependencies;
 
-            final pubspecValueLineLength = _map2LinesCount(pubspecValue);
-            lineIndex += pubspecValueLineLength + 1;
-            continue;
-          }
-        } else {
-          final newLine =
-              line.substring(0, line.indexOf(":")) + ": " + versionsMap[key];
-          final trimNewLine = newLine.trim();
-          if (trimNewLine != trimLine) {
-            newContent.writeln(newLine);
-            _stdout.writeln(
-                "${_textWithRemovedColor(trimLine)} -> ${_textWithAddedColor(trimNewLine)}");
-            ++lineIndex;
-            continue;
-          }
-        }
-      }
-
-      newContent.writeln(line);
-      ++lineIndex;
-    }
-
-    pubspecFile.writeAsStringSync(newContent.toString());
+    // 保存合并后的YAML文件
+    destPubspecFile.writeAsStringSync(_writeMap(destPubspecYaml));
 
     _stdout.writeln("Complete!");
+  }
+
+  String _writeMap(Map yaml, {int indent = 0}) {
+    String str = '\n';
+
+    for (var key in yaml.keys) {
+      var value = yaml[key];
+      str +=
+          "${_indent(indent)}${key.toString()}: ${_writeInternal(value, indent: indent + 1)}\n";
+    }
+
+    return str;
+  }
+
+  /// Write a dart structure to a YAML string. [yaml] should be a [Map] or [List].
+  String _writeInternal(dynamic yaml, {int indent = 0}) {
+    String str = '';
+
+    if (yaml is List) {
+      str += _writeList(yaml, indent: indent);
+    } else if (yaml is Map) {
+      str += _writeMap(yaml, indent: indent);
+    } else if (yaml is String) {
+      str += "\"${yaml.replaceAll("\"", "\\\"")}\"";
+    } else {
+      str += yaml.toString();
+    }
+    return str;
+  }
+
+  /// Write a list to a YAML string.
+  /// Pass the list in as [yaml] and indent it to the [indent] level.
+  String _writeList(List yaml, {int indent = 0}) {
+    String str = '\n';
+
+    for (var item in yaml) {
+      str +=
+          "${_indent(indent)}- ${_writeInternal(item, indent: indent + 1)}\n";
+    }
+
+    return str;
+  }
+
+  /// Create an indented string for the level with the spaces config.
+  /// [indent] is the level of indent whereas [spaces] is the
+  /// amount of spaces that the string should be indented by.
+  String _indent(int indent) {
+    return ''.padLeft(indent * spaces, ' ');
   }
 
   @visibleForTesting
@@ -97,7 +114,7 @@ class VersionsSynchronizer {
     StringBuffer output = StringBuffer();
     final newKey = key + ":";
     output.writeln(
-        newKey.padLeft(lineIndex * _indent + newKey.length + startIndent));
+        newKey.padLeft(lineIndex * spaces + newKey.length + startIndent));
     final keys = map.keys;
     for (int i = 0; i < keys.length; i++) {
       final k = keys.elementAt(i);
@@ -108,8 +125,8 @@ class VersionsSynchronizer {
         output.write(map2Lines(k, startIndent, lineIndex + i + 1, value));
       } else {
         line = "$k: $value";
-        output.writeln(line
-            .padLeft((lineIndex + 1) * _indent + line.length + startIndent));
+        output.writeln(
+            line.padLeft((lineIndex + 1) * spaces + line.length + startIndent));
         continue;
       }
     }
