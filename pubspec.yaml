@@ -1,6 +1,6 @@
 name: shared_versions
 description: shared_versions is a CLI tool that allow share the versions for multiple packages in Flutter.
-version: 2.0.0
+version: 2.0.1
 homepage: https://github.com/littleGnAl/shared_versions
 
 environment:
