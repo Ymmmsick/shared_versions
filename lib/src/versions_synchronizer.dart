@@ -53,10 +53,11 @@ class VersionsSynchronizer {
     final mergedDependencies = {...firstDependencies, ...secondDependencies};
 
     // 将合并后的dependencies节点添加回其中一个YAML文件
-    destPubspecYaml['dependencies'] = mergedDependencies;
+    var newMap = Map.from(destPubspecYaml);
+    newMap['dependencies'] = mergedDependencies;
 
     // 保存合并后的YAML文件
-    destPubspecFile.writeAsStringSync(_writeMap(destPubspecYaml));
+    destPubspecFile.writeAsStringSync(_writeMap(newMap));
 
     _stdout.writeln("Complete!");
   }
