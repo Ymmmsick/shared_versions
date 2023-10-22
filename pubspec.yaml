@@ -4,7 +4,7 @@ version: 2.0.0
 homepage: https://github.com/littleGnAl/shared_versions
 
 environment:
-  sdk: '>=2.12.0 <3.0.0'
+  sdk: '>=3.1.1 <4.0.0'
 
 executables:
   shared_versions: shared_versions
@@ -21,7 +21,7 @@ dev_dependencies:
   test_process: ^2.0.0
   path: ^1.8.0
   test_descriptor: ^2.0.0
-  build_runner: ^1.0.0
+  build_runner: ^2.4.6
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
